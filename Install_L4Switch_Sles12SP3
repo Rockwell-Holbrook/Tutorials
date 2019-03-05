@@ -1,0 +1,32 @@
+1. SUSEConnect -r 54968@PRV-EXT-SLES-8caed39c3d -e rodney.tietjen@microfocus.com
+2. zypper install curl ca-certificates gpg2
+3. zypper addrepo --gpgcheck --type yum --refresh --check 'http://nginx.org/packages/sles/12' nginx-stable
+4. curl -o /tmp/nginx_signing.key https://nginx.org/keys/nginx_signing.key [Expect to 100%]
+5. gpg --with-fingerprint /tmp/nginx_signing.key
+6. rpmkeys --import /tmp/nginx_signing.key
+7. zypper install nginxy
+8. vim /etc/nginx/nginx.conf && APPEND 'include /etc/nginx/passthrough.conf;' to the bottom of the file.
+9. vim /etc/nginx/passthrough.conf && APPEND: 
+        ## tcp LB aind SSL passthrough for backend ##
+        stream {
+            upstream database {
+                server <CHANGE ME - node IP>:5432 max_fails=3 fail_timeout=2s; #Change the IP to your database nodes
+                server <CHANGE ME - node IP>:5432 max_fails=3 fail_timeout=2s; #Change the IP to your database nodes
+            }
+
+        log_format basic '$remote_addr [$time_local] '
+                         '$protocol $status $bytes_sent $bytes_received '
+                         '$session_time "$upstream_addr" '
+                         '"$upstream_bytes_sent" "$upstream_bytes_received" "$upstream_connect_time"';
+
+            access_log /var/log/nginx/database_access.log basic;
+            error_log  /var/log/nginx/database_error.log;
+
+            server {
+                listen 5432;
+                proxy_pass database;
+                proxy_next_upstream on;
+            }
+        } 
+    
+10. service nginx restart
